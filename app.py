@@ -14,7 +14,9 @@ def tg(method, data):
         json=data,
         timeout=15
     )
-    return response.json()
+    result = response.json()
+    print("TELEGRAM:", method, result, flush=True)
+    return result
 
 
 PRODUCTS = {
