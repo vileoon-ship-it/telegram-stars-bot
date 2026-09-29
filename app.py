@@ -20,22 +20,22 @@ def tg(method, data):
 PRODUCTS = {
     "buy_100": {
         "title": "1 вопрос",
-        "description": "Оплата одного вопроса",
+        "description": "Расклад Таро на один вопрос",
         "amount": 100
     },
     "buy_250": {
         "title": "Небольшой расклад",
-        "description": "Оплата небольшого расклада",
+        "description": "Небольшой расклад Таро",
         "amount": 250
     },
     "buy_500": {
         "title": "Большой расклад",
-        "description": "Оплата большого расклада",
+        "description": "Большой расклад Таро",
         "amount": 500
     },
     "buy_1000": {
         "title": "Очень большой подробный расклад",
-        "description": "Оплата очень большого подробного расклада",
+        "description": "Очень большой подробный расклад Таро",
         "amount": 1000
     }
 }
@@ -50,40 +50,86 @@ def home():
 def webhook():
     update = request.get_json(silent=True) or {}
 
-    # 1. Telegram проверяет оплату перед списанием Stars
-    if "pre_checkout_query" in update:
-        query = update["pre_checkout_query"]
+    # /start и обычные сообщения
+    message = update.get("message", {})
 
-        tg("answerPreCheckoutQuery", {
-            "pre_checkout_query_id": query["id"],
-            "ok": True
-        })
-
-        return "ok", 200
-
-    # 2. Нажатие на кнопку с раскладом
-    if "callback_query" in update:
-        callback = update["callback_query"]
-
-        callback_id = callback["id"]
-        data = callback.get("data", "")
-        message = callback.get("message", {})
+    if message:
         chat_id = message.get("chat", {}).get("id")
+        text = message.get("text", "")
 
-        # Убираем загрузку с нажатой кнопки
+        # Стартовое меню
+        if chat_id and text.startswith("/start"):
+            tg("sendMessage", {
+                "chat_id": chat_id,
+                "text": (
+                    "Привет! Я бот для оплаты раскладов Таро ⭐\n\n"
+                    "Выбери нужный формат:"
+                ),
+                "reply_markup": {
+                    "inline_keyboard": [
+                        [
+                            {
+                                "text": "1 вопрос — 100 ⭐",
+                                "callback_data": "buy_100"
+                            }
+                        ],
+                        [
+                            {
+                                "text": "Небольшой расклад — 250 ⭐",
+                                "callback_data": "buy_250"
+                            }
+                        ],
+                        [
+                            {
+                                "text": "Большой расклад — 500 ⭐",
+                                "callback_data": "buy_500"
+                            }
+                        ],
+                        [
+                            {
+                                "text": "Очень большой подробный — 1000 ⭐",
+                                "callback_data": "buy_1000"
+                            }
+                        ]
+                    ]
+                }
+            })
+
+        # Успешная оплата
+        successful_payment = message.get("successful_payment")
+
+        if successful_payment and chat_id:
+            amount = successful_payment.get("total_amount", 0)
+
+            tg("sendMessage", {
+                "chat_id": chat_id,
+                "text": (
+                    f"Оплата {amount} ⭐ прошла успешно!\n\n"
+                    "Спасибо за оплату ❤️\n"
+                    "Теперь можешь прислать свой вопрос и данные для расклада."
+                )
+            })
+
+    # Нажатие кнопки оплаты
+    callback = update.get("callback_query")
+
+    if callback:
+        callback_id = callback.get("id")
+        chat_id = callback.get("message", {}).get("chat", {}).get("id")
+        product_id = callback.get("data")
+
         tg("answerCallbackQuery", {
             "callback_query_id": callback_id
         })
 
-        product = PRODUCTS.get(data)
+        product = PRODUCTS.get(product_id)
 
         if product and chat_id:
             tg("sendInvoice", {
                 "chat_id": chat_id,
                 "title": product["title"],
                 "description": product["description"],
-                "payload": data,
-                "provider_token": "",
+                "payload": product_id,
                 "currency": "XTR",
                 "prices": [
                     {
@@ -93,71 +139,9 @@ def webhook():
                 ]
             })
 
-        return "ok", 200
-
-    # 3. Обычные сообщения
-    message = update.get("message", {})
-    chat_id = message.get("chat", {}).get("id")
-    text = message.get("text", "")
-
-    if not chat_id:
-        return "ok", 200
-
-    # 4. Telegram сообщает об успешной оплате
-    if "successful_payment" in message:
-        payment = message["successful_payment"]
-        amount = payment.get("total_amount")
-
-        tg("sendMessage", {
-            "chat_id": chat_id,
-            "text": (
-                f"Оплата успешно получена — {amount} ⭐️\n\n"
-                "Спасибо за оплату ❤️\n"
-                "Теперь можешь написать мне для проведения расклада."
-            )
-        })
-
-        return "ok", 200
-
-    # 5. Команда /start
-    if text.startswith("/start"):
-        tg("sendMessage", {
-            "chat_id": chat_id,
-            "text": (
-                "Привет ❤️\n\n"
-                "Здесь ты можешь оплатить расклад через Telegram Stars ⭐️\n\n"
-                "Выбери нужный вариант:"
-            ),
-            "reply_markup": {
-                "inline_keyboard": [
-                    [
-                        {
-                            "text": "1 вопрос — 100 ⭐️",
-                            "callback_data": "buy_100"
-                        }
-                    ],
-                    [
-                        {
-                            "text": "Небольшой расклад — 250 ⭐️",
-                            "callback_data": "buy_250"
-                        }
-                    ],
-                    [
-                        {
-                            "text": "Большой расклад — 500 ⭐️",
-                            "callback_data": "buy_500"
-                        }
-                    ],
-                    [
-                        {
-                            "text": "Очень большой подробный — 1000 ⭐️",
-                            "callback_data": "buy_1000"
-                        }
-                    ]
-                ]
-            }
-        })
-
-        return "ok", 200
-
     return "ok", 200
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
