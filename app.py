@@ -23,7 +23,7 @@ PRODUCTS = {
     "buy_100": {
         "title": "1–2 вопроса",
         "description": "Расклад Таро на 1–2 вопроса",
-        "amount": 100
+        "amount": 10
     },
     "buy_250": {
         "title": "Небольшой расклад",
@@ -87,7 +87,7 @@ def webhook():
                     "inline_keyboard": [
                         [
                             {
-                                "text": "1–2 вопроса — 100 ⭐",
+                                "text": "ТЕСТ — 10 ⭐",
                                 "callback_data": "buy_100"
                             }
                         ],
