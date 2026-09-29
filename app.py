@@ -21,23 +21,23 @@ def tg(method, data):
 
 PRODUCTS = {
     "buy_100": {
-        "title": "1 вопрос",
-        "description": "Расклад Таро на один вопрос",
+        "title": "1–2 вопроса",
+        "description": "Расклад Таро на 1–2 вопроса",
         "amount": 100
     },
     "buy_250": {
         "title": "Небольшой расклад",
-        "description": "Небольшой расклад Таро",
+        "description": "Небольшой расклад Таро на 3–5 вопросов",
         "amount": 250
     },
     "buy_500": {
         "title": "Большой расклад",
-        "description": "Большой расклад Таро",
+        "description": "Большой расклад с разбором всей ситуации",
         "amount": 500
     },
     "buy_1000": {
-        "title": "Очень большой подробный расклад",
-        "description": "Очень большой подробный расклад Таро",
+        "title": "Полный разбор ситуации",
+        "description": "Полный разбор ситуации — любое количество вопросов с моей стороны",
         "amount": 1000
     }
 }
@@ -52,14 +52,32 @@ def home():
 def webhook():
     update = request.get_json(silent=True) or {}
 
-    # /start и обычные сообщения
+    # Сообщения
     message = update.get("message", {})
 
     if message:
         chat_id = message.get("chat", {}).get("id")
         text = message.get("text", "")
 
-        # Стартовое меню
+        # Успешная оплата
+        successful_payment = message.get("successful_payment")
+
+        if successful_payment and chat_id:
+            amount = successful_payment.get("total_amount")
+
+            tg("sendMessage", {
+                "chat_id": chat_id,
+                "text": (
+                    f"Оплата {amount} ⭐ получена!\n\n"
+                    "Спасибо за оплату ❤️\n\n"
+                    "Теперь пришли свой вопрос и подробно опиши ситуацию.\n"
+                    "Если расклад про отношения — напиши имена и немного контекста."
+                )
+            })
+
+            return "ok", 200
+
+        # /start
         if chat_id and text.startswith("/start"):
             tg("sendMessage", {
                 "chat_id": chat_id,
@@ -71,13 +89,13 @@ def webhook():
                     "inline_keyboard": [
                         [
                             {
-                                "text": "1 вопрос — 100 ⭐",
+                                "text": "1–2 вопроса — 100 ⭐",
                                 "callback_data": "buy_100"
                             }
                         ],
                         [
                             {
-                                "text": "Небольшой расклад — 250 ⭐",
+                                "text": "Небольшой расклад 3–5 вопросов — 250 ⭐",
                                 "callback_data": "buy_250"
                             }
                         ],
@@ -89,7 +107,7 @@ def webhook():
                         ],
                         [
                             {
-                                "text": "Очень большой подробный — 1000 ⭐",
+                                "text": "Полный разбор ситуации — 1000 ⭐",
                                 "callback_data": "buy_1000"
                             }
                         ]
@@ -97,22 +115,7 @@ def webhook():
                 }
             })
 
-        # Успешная оплата
-        successful_payment = message.get("successful_payment")
-
-        if successful_payment and chat_id:
-            amount = successful_payment.get("total_amount", 0)
-
-            tg("sendMessage", {
-                "chat_id": chat_id,
-                "text": (
-                    f"Оплата {amount} ⭐ прошла успешно!\n\n"
-                    "Спасибо за оплату ❤️\n"
-                    "Теперь можешь прислать свой вопрос и данные для расклада."
-                )
-            })
-
-    # Нажатие кнопки оплаты
+    # Нажатие кнопки
     callback = update.get("callback_query")
 
     if callback:
@@ -140,6 +143,15 @@ def webhook():
                     }
                 ]
             })
+
+    # Telegram запрашивает подтверждение перед оплатой
+    pre_checkout_query = update.get("pre_checkout_query")
+
+    if pre_checkout_query:
+        tg("answerPreCheckoutQuery", {
+            "pre_checkout_query_id": pre_checkout_query["id"],
+            "ok": True
+        })
 
     return "ok", 200
 
