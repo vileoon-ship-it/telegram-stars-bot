@@ -69,9 +69,7 @@ def webhook():
                 "chat_id": chat_id,
                 "text": (
                     f"Оплата {amount} ⭐ получена!\n\n"
-                    "Спасибо за оплату ❤️\n\n"
-                    "Теперь пришли свой вопрос и подробно опиши ситуацию.\n"
-                    "Если расклад про отношения — напиши имена и немного контекста."
+                    "Спасибо за оплату ❤️"
                 )
             })
 
@@ -95,7 +93,7 @@ def webhook():
                         ],
                         [
                             {
-                                "text": "Небольшой расклад 3–5 вопросов — 250 ⭐",
+                                "text": "3–5 вопросов — 250 ⭐",
                                 "callback_data": "buy_250"
                             }
                         ],
@@ -107,7 +105,7 @@ def webhook():
                         ],
                         [
                             {
-                                "text": "Полный разбор ситуации — 1000 ⭐",
+                                "text": "Полный разбор — 1000 ⭐",
                                 "callback_data": "buy_1000"
                             }
                         ]
@@ -115,7 +113,7 @@ def webhook():
                 }
             })
 
-    # Нажатие кнопки
+    # Нажатие на кнопку тарифа
     callback = update.get("callback_query")
 
     if callback:
@@ -144,7 +142,7 @@ def webhook():
                 ]
             })
 
-    # Telegram запрашивает подтверждение перед оплатой
+    # Подтверждение оплаты Telegram
     pre_checkout_query = update.get("pre_checkout_query")
 
     if pre_checkout_query:
