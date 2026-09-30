@@ -7,6 +7,9 @@ app = Flask(__name__)
 TOKEN = os.environ["BOT_TOKEN"]
 API = f"https://api.telegram.org/bot{TOKEN}"
 
+# Запоминаем пользователей, от которых ждём свою сумму
+waiting_for_amount = set()
+
 
 def tg(method, data):
     response = requests.post(
@@ -57,7 +60,7 @@ def webhook():
 
     if message:
         chat_id = message.get("chat", {}).get("id")
-        text = message.get("text", "")
+        text = message.get("text", "").strip()
 
         # Успешная оплата
         successful_payment = message.get("successful_payment")
@@ -77,6 +80,8 @@ def webhook():
 
         # /start
         if chat_id and text.startswith("/start"):
+            waiting_for_amount.discard(chat_id)
+
             tg("sendMessage", {
                 "chat_id": chat_id,
                 "text": (
@@ -108,12 +113,55 @@ def webhook():
                                 "text": "Полный разбор — 1000 ⭐",
                                 "callback_data": "buy_1000"
                             }
+                        ],
+                        [
+                            {
+                                "text": "Другая сумма ⭐",
+                                "callback_data": "custom_amount"
+                            }
                         ]
                     ]
                 }
             })
 
-    # Нажатие на кнопку тарифа
+            return "ok", 200
+
+        # Пользователь вводит свою сумму
+        if chat_id in waiting_for_amount:
+            try:
+                amount = int(text)
+
+                if amount < 1:
+                    raise ValueError
+
+                waiting_for_amount.discard(chat_id)
+
+                tg("sendInvoice", {
+                    "chat_id": chat_id,
+                    "title": "Оплата расклада",
+                    "description": f"Оплата расклада Таро — {amount} ⭐",
+                    "payload": f"custom_{amount}",
+                    "currency": "XTR",
+                    "prices": [
+                        {
+                            "label": "Оплата расклада",
+                            "amount": amount
+                        }
+                    ]
+                })
+
+            except ValueError:
+                tg("sendMessage", {
+                    "chat_id": chat_id,
+                    "text": (
+                        "Введите сумму только цифрами ⭐\n\n"
+                        "Например: 350"
+                    )
+                })
+
+            return "ok", 200
+
+    # Нажатие на кнопку
     callback = update.get("callback_query")
 
     if callback:
@@ -125,6 +173,22 @@ def webhook():
             "callback_query_id": callback_id
         })
 
+        # Другая сумма
+        if product_id == "custom_amount" and chat_id:
+            waiting_for_amount.add(chat_id)
+
+            tg("sendMessage", {
+                "chat_id": chat_id,
+                "text": (
+                    "Введите количество звёзд, "
+                    "которое хотите отправить ⭐\n\n"
+                    "Например: 350"
+                )
+            })
+
+            return "ok", 200
+
+        # Обычные тарифы
         product = PRODUCTS.get(product_id)
 
         if product and chat_id:
